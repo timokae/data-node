@@ -13,7 +13,10 @@ struct Heartbeat {
     fingerprint: String,
 }
 
-pub async fn start_service(fingerprint: String, port: String) {
+pub async fn start(
+    fingerprint: String,
+    port: String,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     logger::log("HeartbeatService started.");
     tokio::spawn(async move {
         loop {
@@ -23,6 +26,8 @@ pub async fn start_service(fingerprint: String, port: String) {
     })
     .await
     .unwrap();
+
+    Ok(())
 }
 
 async fn send_heartbeat(
