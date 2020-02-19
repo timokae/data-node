@@ -1,26 +1,21 @@
-use hyper::{Client, Method, Request};
+use crate::{models, logger};
 
-use serde::Serialize;
 use std::error::Error;
 use std::thread;
 use std::time::Duration;
+use models::DataNode;
 
-use crate::logger;
-
-#[derive(Serialize, Debug)]
-struct Heartbeat {
-    address: String,
-    fingerprint: String,
-}
 
 pub async fn start(
     fingerprint: String,
-    port: String,
+    name_node_addr: String,
+    port: u16
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    logger::log("HeartbeatService started.");
+    logger::log("HeartbeatService", "Service started.");
+
     tokio::spawn(async move {
         loop {
-            let _ = send_heartbeat(fingerprint.clone(), port.clone()).await;
+            let _ = send_heartbeat(fingerprint.clone(), name_node_addr.clone(), port.clone()).await;
             thread::sleep(Duration::from_secs(60 * 2));
         }
     })
@@ -32,27 +27,26 @@ pub async fn start(
 
 async fn send_heartbeat(
     fingerprint: String,
-    port: String,
+    name_node_addr: String,
+    port: u16,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let ip = local_ip::get().unwrap();
-    let heartbeat = Heartbeat {
+    let heartbeat = DataNode {
         address: format!("{}:{}", ip.to_string(), port),
         fingerprint: fingerprint,
     };
-    let body = serde_json::to_string(&heartbeat).unwrap();
 
-    let req = Request::builder()
-        .method(Method::POST)
-        .uri("http://localhost:3000/heartbeat")
-        .header("Content-Type", "application/json")
-        .body(body.into())
-        .unwrap();
+    let uri = format!("{}/heartbeat", name_node_addr);
 
-    let client = Client::new();
+    logger::log("HeartbeatService", "Sending heartbeat");
 
-    logger::log("Sending heartbeat");
-    let resp = client.request(req).await?;
-    logger::log(&resp.status().to_string());
+    let res = reqwest::Client::new()
+        .post(&uri)
+        .json(&heartbeat)
+        .send()
+        .await?;
+
+    logger::log("HeartbeatService", &res.status().to_string());
 
     Ok(())
 }

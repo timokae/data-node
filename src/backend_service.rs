@@ -1,29 +1,32 @@
 use crate::logger;
+use crate::models;
 
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use models::Package;
 
-async fn echo(req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/") => Ok(Response::new(Body::from("lol"))),
-        _ => {
-            let mut not_found = Response::default();
-            *not_found.status_mut() = StatusCode::NOT_FOUND;
-            Ok(not_found)
-        }
-    }
-}
+use warp::Filter;
+use tokio::sync::mpsc;
+use std::net::{SocketAddr, Ipv4Addr, IpAddr::V4};
 
-pub async fn start_server(port: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let addr_str = format!("127.0.0.1:{}", port);
-    let addr = addr_str.parse()?;
+pub async fn start(port: u16, sender: mpsc::Sender<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    logger::log("Backend", &format!("Server started on port {}", port));
 
-    logger::log(&format!("Server started on {}", addr));
+    let promote = warp::post()
+        .and(warp::path("distribute"))
+        .and(warp::body::content_length_limit(1024 * 16)) // Only accept bodies smaller than 16kb...
+        .and(warp::body::json())
+        .map(move |package: Package| {
+            distribute(sender.clone(), package)
+        });
 
-    let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(echo)) });
-    let server = Server::bind(&addr).serve(service);
-
-    let _ = server.await;
+    let addr = SocketAddr::new(V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    warp::serve(promote)
+        .bind(addr)
+        .await;
 
     Ok(())
+}
+
+fn distribute(mut sender: mpsc::Sender<String>, package: Package) -> warp::reply::Json {
+    let _ = sender.try_send(package.data.clone());
+    warp::reply::json(&package)
 }

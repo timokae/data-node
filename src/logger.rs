@@ -1,5 +1,5 @@
 use chrono::Utc;
 
-pub fn log(msg: &str) {
-    println!("[{}]\t{}", Utc::now().format("%H:%M"), msg);
+pub fn log(service: &str, msg: &str) {
+    println!("[{} - {}]\t{}", Utc::now().format("%H:%M"), service, msg);
 }
