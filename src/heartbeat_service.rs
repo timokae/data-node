@@ -11,7 +11,7 @@ pub async fn start(
     name_node_addr: String,
     port: u16
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    logger::log("HeartbeatService", "Service started.");
+    logger::log("Heartbeat", "Service started.");
 
     tokio::spawn(async move {
         loop {
@@ -38,7 +38,7 @@ async fn send_heartbeat(
 
     let uri = format!("{}/heartbeat", name_node_addr);
 
-    logger::log("HeartbeatService", "Sending heartbeat");
+    logger::log("Heartbeat", "Sending heartbeat");
 
     let res = reqwest::Client::new()
         .post(&uri)
@@ -46,7 +46,7 @@ async fn send_heartbeat(
         .send()
         .await?;
 
-    logger::log("HeartbeatService", &res.status().to_string());
+    logger::log("Heartbeat", &res.status().to_string());
 
     Ok(())
 }

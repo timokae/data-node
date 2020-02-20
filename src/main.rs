@@ -10,6 +10,7 @@ mod heartbeat_service;
 mod distributor_service;
 mod logger;
 mod models;
+mod storage;
 
 #[tokio::main]
 async fn main() {
