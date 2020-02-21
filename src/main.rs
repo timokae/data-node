@@ -6,8 +6,8 @@ use std::env;
 use tokio::try_join;
 
 mod backend_service;
-mod heartbeat_service;
 mod distributor_service;
+mod heartbeat_service;
 mod logger;
 mod models;
 mod storage;
@@ -16,14 +16,17 @@ mod storage;
 async fn main() {
     let args: Vec<String> = env::args().collect();
     let fingerprint = args[1].clone();
-    let name_node_addr = args[2].clone();
+    let name_node_url = args[2].clone();
     let port = str::parse::<u16>(&args[3].clone()).unwrap();
 
     let (sender, receiver) = tokio::sync::mpsc::channel(1024);
+    let storage = storage::Storage::current();
 
-    let distributor_fut = distributor_service::start(receiver);
-    let heartbeat_fut = heartbeat_service::start(fingerprint, name_node_addr.clone(), port.clone());
-    let backend_fut = backend_service::start(port, sender);
+    let distributor_fut =
+        distributor_service::start(fingerprint.clone(), name_node_url.clone(), receiver);
+    let heartbeat_fut =
+        heartbeat_service::start(fingerprint.clone(), name_node_url.clone(), port.clone());
+    let backend_fut = backend_service::start(port.clone(), sender);
 
     let res = try_join!(distributor_fut, heartbeat_fut, backend_fut);
 

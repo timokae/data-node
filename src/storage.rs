@@ -1,51 +1,60 @@
 use crate::logger;
 
-use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
 use std::thread_local;
 
 struct StorageInner {
-    data_map: HashMap<u64, String>
+    data_map: HashMap<u64, String>,
 }
 
 pub struct Storage {
-    inner: RwLock<StorageInner>
+    inner: RwLock<StorageInner>,
 }
 
 impl Storage {
     pub fn new() -> Arc<Storage> {
         Arc::new(Storage {
             inner: RwLock::new(StorageInner {
-                data_map: HashMap::new()
-            })
+                data_map: HashMap::new(),
+            }),
         })
     }
 
     pub fn current() -> Arc<Storage> {
-        CURRENT_STORAGE.with( |s| s.clone() )
+        CURRENT_STORAGE.with(|s| s.clone())
     }
 
     pub fn insert(&self, data: String) -> u64 {
         let hash = self.calculate_hash(&data);
-        self.inner.write().unwrap().data_map.insert(hash, data.clone());
+        self.inner
+            .write()
+            .unwrap()
+            .data_map
+            .insert(hash, data.clone());
 
         let msg = format!("Inserted {} with hash {}", data.clone(), hash);
         logger::log("Storage", &msg);
-
         hash
     }
 
     pub fn get(&self, hash: u64) -> Option<String> {
         match self.inner.read().unwrap().data_map.get(&hash) {
-            Some(value) => {
-                Some(value.clone())
-            },
-            _ => {
-                None
-            }
+            Some(value) => Some(value.clone()),
+            _ => None,
         }
+    }
+
+    pub fn hashes(&self) -> Vec<String> {
+        self.inner
+            .read()
+            .unwrap()
+            .data_map
+            .keys()
+            .map(|key| key.to_string().clone())
+            .collect()
     }
 
     fn calculate_hash<T: Hash>(&self, t: &T) -> u64 {
