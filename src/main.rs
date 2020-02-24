@@ -24,9 +24,13 @@ async fn main() {
 
     let distributor_fut =
         distributor_service::start(fingerprint.clone(), name_node_url.clone(), receiver);
-    let heartbeat_fut =
-        heartbeat_service::start(fingerprint.clone(), name_node_url.clone(), port.clone());
-    let backend_fut = backend_service::start(port.clone(), sender);
+    let heartbeat_fut = heartbeat_service::start(
+        fingerprint.clone(),
+        name_node_url.clone(),
+        port.clone(),
+        storage.clone(),
+    );
+    let backend_fut = backend_service::start(port.clone(), sender, storage.clone());
 
     let res = try_join!(distributor_fut, heartbeat_fut, backend_fut);
 
