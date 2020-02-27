@@ -75,9 +75,13 @@ fn handle_save(package: Package, storage: Arc<Storage>) -> warp::reply::Json {
 
 fn handle_lookup(hash: String, storage: Arc<Storage>) -> warp::reply::Json {
     let h = hash.parse::<u64>().unwrap();
-    // let value = Storage::current().get(h);
-    let value = storage.get(h);
-    warp::reply::json(&value)
+    match storage.get(h) {
+        Some(value) => warp::reply::json(&value),
+        None => match storage.get_foreign(h) {
+            Some(value) => warp::reply::json(&value),
+            None => warp::reply::json(&String::from("Hash not found!")),
+        },
+    }
 }
 
 fn handle_hashes(storage: Arc<Storage>) -> warp::reply::Json {

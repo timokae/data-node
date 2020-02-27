@@ -1,7 +1,7 @@
 use crate::storage;
 use crate::{logger, models};
 
-use models::{DataNode, Heartbeat};
+use models::{DataNode, Heartbeat, HeartbeatResponse};
 use std::error::Error;
 use std::sync::Arc;
 use std::thread;
@@ -18,7 +18,10 @@ pub async fn start(
 
     tokio::spawn(async move {
         loop {
-            let _ = send_heartbeat(&fingerprint, &name_node_addr, port, storage.clone()).await;
+            match send_heartbeat(&fingerprint, &name_node_addr, port, storage.clone()).await {
+                Ok(res) => handle_heartbeat_response(res, storage.clone()),
+                _ => {}
+            }
             thread::sleep(Duration::from_secs(20 * 1));
         }
     })
@@ -33,7 +36,7 @@ async fn send_heartbeat(
     name_node_addr: &str,
     port: u16,
     storage: Arc<Storage>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<HeartbeatResponse, Box<dyn Error + Send + Sync>> {
     let ip = local_ip::get().unwrap();
     let hashes = storage.hashes();
 
@@ -58,5 +61,11 @@ async fn send_heartbeat(
 
     logger::log("Heartbeat", &res.status().to_string());
 
-    Ok(())
+    let body = res.json::<HeartbeatResponse>().await?;
+
+    Ok(body)
+}
+
+fn handle_heartbeat_response(response: HeartbeatResponse, storage: Arc<Storage>) {
+    storage.insert_foreign(response.foreign_hashes);
 }

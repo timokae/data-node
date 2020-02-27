@@ -1,5 +1,7 @@
 use crate::logger;
+use crate::models;
 
+use models::ForeignHash;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -8,6 +10,7 @@ use std::thread_local;
 
 struct StorageInner {
     data_map: HashMap<u64, String>,
+    foreign_map: HashMap<u64, String>, // Hash, IP
 }
 
 pub struct Storage {
@@ -19,6 +22,7 @@ impl Storage {
         Arc::new(Storage {
             inner: RwLock::new(StorageInner {
                 data_map: HashMap::new(),
+                foreign_map: HashMap::new(),
             }),
         })
     }
@@ -45,6 +49,24 @@ impl Storage {
             Some(value) => Some(value.clone()),
             _ => None,
         }
+    }
+
+    pub fn get_foreign(&self, hash: u64) -> Option<String> {
+        match self.inner.read().unwrap().foreign_map.get(&hash) {
+            Some(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn insert_foreign(&self, new_hashes: Vec<ForeignHash>) {
+        {
+            let foreign_map = &mut self.inner.write().unwrap().foreign_map;
+            foreign_map.clear();
+            for f_hash in new_hashes {
+                foreign_map.insert(f_hash.hash.parse::<u64>().unwrap(), f_hash.addr);
+            }
+        }
+        println!("{:?}", self.inner.read().unwrap().foreign_map);
     }
 
     pub fn hashes(&self) -> Vec<String> {
