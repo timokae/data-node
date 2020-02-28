@@ -6,7 +6,9 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
-use std::thread_local;
+
+/// The Storage contains all locally saved data-strings. For each string a hash is calculated. The data can be accessed with the hash.
+/// It also contains a vector a hash-address-pairs. The hashes represent data saved on other data-nodes, called foreign hashes.
 
 struct StorageInner {
     data_map: HashMap<u64, String>,
@@ -27,10 +29,8 @@ impl Storage {
         })
     }
 
-    pub fn current() -> Arc<Storage> {
-        CURRENT_STORAGE.with(|s| s.clone())
-    }
-
+    // Calculates a hash based on the data-string and saves in in the hash along the given data-stirng
+    // Then in returns the hash.
     pub fn insert(&self, data: String) -> u64 {
         let hash = self.calculate_hash(&data);
         self.inner
@@ -44,6 +44,8 @@ impl Storage {
         hash
     }
 
+    // Returns the data saved under the given hash
+    // If the has could not be found, it returns None
     pub fn get(&self, hash: u64) -> Option<String> {
         match self.inner.read().unwrap().data_map.get(&hash) {
             Some(value) => Some(value.clone()),
@@ -51,6 +53,7 @@ impl Storage {
         }
     }
 
+    // Returns a ip address for the given hash
     pub fn get_foreign(&self, hash: u64) -> Option<String> {
         match self.inner.read().unwrap().foreign_map.get(&hash) {
             Some(value) => Some(value.clone()),
@@ -58,6 +61,7 @@ impl Storage {
         }
     }
 
+    // Replaces all foreign hashes with the given vector of hashes
     pub fn insert_foreign(&self, new_hashes: Vec<ForeignHash>) {
         {
             let foreign_map = &mut self.inner.write().unwrap().foreign_map;
@@ -69,6 +73,7 @@ impl Storage {
         println!("{:?}", self.inner.read().unwrap().foreign_map);
     }
 
+    // Returns all local hashes
     pub fn hashes(&self) -> Vec<String> {
         self.inner
             .read()
@@ -84,8 +89,4 @@ impl Storage {
         t.hash(&mut hasher);
         hasher.finish()
     }
-}
-
-thread_local! {
-    static CURRENT_STORAGE: Arc<Storage> = Storage::new();
 }

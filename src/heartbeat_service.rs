@@ -8,6 +8,28 @@ use std::thread;
 use std::time::Duration;
 use storage::Storage;
 
+/// The Heartbeat Service starts a thread which send periodic messages over a http connection to the name server
+///
+/// * fingerprint: a unique identifier for this node
+/// * name_node_addr: the address on which the name server can be reached, e.g. 'http://localhost:3000'
+/// * port: the port on which the data node is listening for incoming http requests
+/// * storage: the storage service
+///
+/// Example outgoing json object
+/// ```
+/// {
+///     "node": {
+///         "address": "192.168.0.100:8080",
+///         "fingerprint": "client-1"
+///     },
+///     "hashes": [
+///         "hash-1",
+///         "hash-2"
+///     ]
+/// }
+/// The hashes array contain all hashes the data node has saved, not the foreign hashes of other nodes.
+/// ```
+
 pub async fn start(
     fingerprint: String,
     name_node_addr: String,
@@ -19,7 +41,10 @@ pub async fn start(
     tokio::spawn(async move {
         loop {
             match send_heartbeat(&fingerprint, &name_node_addr, port, storage.clone()).await {
-                Ok(res) => handle_heartbeat_response(res, storage.clone()),
+                Ok(res) => match res.json::<HeartbeatResponse>().await {
+                    Ok(body) => handle_heartbeat_response(body, storage.clone()),
+                    Err(_) => logger::log("Heartbeat", "Failed to decode heartbeat response"),
+                },
                 _ => {}
             }
             thread::sleep(Duration::from_secs(20 * 1));
@@ -36,7 +61,7 @@ async fn send_heartbeat(
     name_node_addr: &str,
     port: u16,
     storage: Arc<Storage>,
-) -> Result<HeartbeatResponse, Box<dyn Error + Send + Sync>> {
+) -> Result<reqwest::Response, Box<dyn Error + Send + Sync>> {
     let ip = local_ip::get().unwrap();
     let hashes = storage.hashes();
 
@@ -50,7 +75,6 @@ async fn send_heartbeat(
     };
 
     let uri = format!("{}/heartbeat", name_node_addr);
-    println!("{:?}", heartbeat);
     logger::log("Heartbeat", "Sending heartbeat");
 
     let res = reqwest::Client::new()
@@ -61,9 +85,7 @@ async fn send_heartbeat(
 
     logger::log("Heartbeat", &res.status().to_string());
 
-    let body = res.json::<HeartbeatResponse>().await?;
-
-    Ok(body)
+    Ok(res)
 }
 
 fn handle_heartbeat_response(response: HeartbeatResponse, storage: Arc<Storage>) {

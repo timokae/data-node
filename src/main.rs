@@ -20,7 +20,7 @@ async fn main() {
     let port = str::parse::<u16>(&args[3].clone()).unwrap();
 
     let (sender, receiver) = tokio::sync::mpsc::channel(1024);
-    let storage = storage::Storage::current();
+    let storage = storage::Storage::new();
 
     let distributor_fut =
         distributor_service::start(fingerprint.clone(), name_node_url.clone(), receiver);

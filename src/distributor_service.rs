@@ -8,6 +8,16 @@ use models::{DataNode, Package};
 use std::error::Error;
 use tokio::sync::mpsc;
 
+/// The Distributor Service starts a threads, which uses a receiver for waiting for incoming messages
+/// This message contains a data string
+///
+/// * fingerprint: a unique identifier for this node
+/// * name_node_addr: the address on which the name server can be reached, e.g. 'http://localhost:3000'
+/// * receiver: listens for incoming messages from the backend servce
+///
+/// When the service receives a data-string, it loads all saved data-nodes from the name server.
+/// It then sends a http request, containing the data-string, to each node to save it locally.
+
 pub async fn start(
     fingerprint: String,
     name_node_url: String,
